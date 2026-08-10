@@ -10,18 +10,28 @@ export function QrCanvas({ value, size = 240 }: { value: string; size?: number }
     const canvas = ref.current;
     if (!canvas) return;
     let cancelled = false;
-    QRCode.toCanvas(canvas, value, {
-      width: size,
-      margin: 2,
-      errorCorrectionLevel: "M",
-      color: { dark: "#000000ff", light: "#ffffffff" },
-    })
-      .then(() => !cancelled && setError(null))
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "QR generation failed");
-      });
+
+    // QRCode.toCanvas performs CPU-heavy encoding synchronously before its
+    // promise settles. Give Android WebView time to finish the navigation and
+    // first paint before starting that work, otherwise the first tap can look
+    // like the Share page has frozen.
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      QRCode.toCanvas(canvas, value, {
+        width: size,
+        margin: 2,
+        errorCorrectionLevel: "M",
+        color: { dark: "#000000ff", light: "#ffffffff" },
+      })
+        .then(() => !cancelled && setError(null))
+        .catch((e: unknown) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : "QR generation failed");
+        });
+    }, 350);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [value, size]);
 
