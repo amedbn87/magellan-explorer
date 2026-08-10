@@ -66,6 +66,36 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    let active = true;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (!active) return;
+        const coords = position.coords;
+        setSnapshot((current) => ({
+          ...current,
+          isNative: true,
+          source: "AndroidGnssStatus",
+          timestamp: position.timestamp,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          altitudeM: coords.altitude ?? undefined,
+          accuracyM: coords.accuracy ?? undefined,
+          speedMps: coords.speed !== null ? coords.speed : undefined,
+          courseBearingDeg: coords.heading !== null ? normalizeHeading(coords.heading) : current.courseBearingDeg,
+          compassHeadingDeg: sensorHeading ?? current.compassHeadingDeg,
+          fixQuality: coords.accuracy !== null && coords.accuracy <= 50 ? "3D" : "2D",
+        }));
+      },
+      () => {
+        // Keep the last valid fix; UI will continue to show unavailable values only when none exists.
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
+    );
+    return () => { active = false; navigator.geolocation.clearWatch(watchId); };
+  }, [sensorHeading]);
+
+  useEffect(() => {
     if (sensorHeading === undefined) return;
     setSnapshot((current) => ({ ...current, compassHeadingDeg: sensorHeading }));
   }, [sensorHeading]);
@@ -79,10 +109,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
     };
     const eventName = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
     window.addEventListener(eventName, handler as EventListener, { passive: true });
-    return () => {
-      active = false;
-      window.removeEventListener(eventName, handler as EventListener);
-    };
+    return () => { active = false; window.removeEventListener(eventName, handler as EventListener); };
   }, []);
 
   useEffect(() => {
