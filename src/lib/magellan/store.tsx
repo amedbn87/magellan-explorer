@@ -18,6 +18,8 @@ interface MagellanState {
 
 const Ctx = createContext<MagellanState | null>(null);
 const normalizeHeading = (value: number) => ((value % 360) + 360) % 360;
+const headingDelta = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+
 function orientationHeading(event: DeviceOrientationEvent): number | undefined {
   if (event.alpha === null) return undefined;
   const extended = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
@@ -35,8 +37,8 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sensorHeading, setSensorHeading] = useState<number | undefined>();
   const lastHeadingRef = useRef<number | undefined>();
-  const headingRafRef = useRef<number | null>(null);
   const pendingHeadingRef = useRef<number | undefined>();
+  const headingTimerRef = useRef<number | null>(null);
   const hasRealFix = useRef(false);
 
   useEffect(() => {
@@ -66,7 +68,10 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
     return () => { active = false; navigator.geolocation.clearWatch(watchId); };
   }, []);
 
-  useEffect(() => { if (sensorHeading !== undefined) setSnapshot((current) => ({ ...current, compassHeadingDeg: sensorHeading })); }, [sensorHeading]);
+  useEffect(() => {
+    if (sensorHeading === undefined) return;
+    setSnapshot((current) => ({ ...current, compassHeadingDeg: sensorHeading }));
+  }, [sensorHeading]);
 
   useEffect(() => {
     let active = true;
@@ -75,24 +80,27 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
       const heading = orientationHeading(event);
       if (heading === undefined) return;
       const previous = lastHeadingRef.current;
-      const delta = previous === undefined ? Infinity : Math.abs(((heading - previous + 540) % 360) - 180);
-      if (delta < 1) return;
+      if (previous !== undefined && headingDelta(heading, previous) < 2) return;
       lastHeadingRef.current = heading;
       pendingHeadingRef.current = heading;
-      if (headingRafRef.current !== null) return;
-      headingRafRef.current = window.requestAnimationFrame(() => {
-        headingRafRef.current = null;
+      if (headingTimerRef.current !== null) return;
+      // Android WebView can deliver orientation events at sensor frequency.
+      // Do not push every event through the React context: that rerenders the
+      // whole application and can starve touch input on slower WebViews.
+      headingTimerRef.current = window.setTimeout(() => {
+        headingTimerRef.current = null;
         if (!active || pendingHeadingRef.current === undefined) return;
         setSensorHeading(pendingHeadingRef.current);
-      });
+        pendingHeadingRef.current = undefined;
+      }, 200);
     };
     const eventName = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
     window.addEventListener(eventName, handler as EventListener, { passive: true });
     return () => {
       active = false;
       window.removeEventListener(eventName, handler as EventListener);
-      if (headingRafRef.current !== null) window.cancelAnimationFrame(headingRafRef.current);
-      headingRafRef.current = null;
+      if (headingTimerRef.current !== null) window.clearTimeout(headingTimerRef.current);
+      headingTimerRef.current = null;
       pendingHeadingRef.current = undefined;
     };
   }, []);
