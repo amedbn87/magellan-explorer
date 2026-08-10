@@ -39,6 +39,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   const lastHeadingRef = useRef<number | undefined>();
   const pendingHeadingRef = useRef<number | undefined>();
   const headingTimerRef = useRef<number | null>(null);
+  const lastLocationUpdateRef = useRef(0);
   const hasRealFix = useRef(false);
 
   useEffect(() => {
@@ -58,6 +59,12 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         if (!active) return;
+        const now = Date.now();
+        // Android WebView can receive location callbacks more frequently than
+        // the UI needs. Keep the global React context at a bounded update rate
+        // so GPS callbacks cannot starve touch/render work.
+        if (now - lastLocationUpdateRef.current < 1000) return;
+        lastLocationUpdateRef.current = now;
         hasRealFix.current = true;
         const c = position.coords;
         setSnapshot((current) => ({ ...current, isNative: true, source: "BrowserGeolocation", timestamp: position.timestamp, latitude: c.latitude, longitude: c.longitude, altitudeM: c.altitude ?? undefined, accuracyM: c.accuracy ?? undefined, speedMps: c.speed !== null ? c.speed : undefined, courseBearingDeg: c.heading !== null ? normalizeHeading(c.heading) : current.courseBearingDeg, fixQuality: c.accuracy !== null && c.accuracy <= 50 ? "3D" : "2D" }));
