@@ -34,6 +34,9 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("en");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sensorHeading, setSensorHeading] = useState<number | undefined>();
+  const lastHeadingRef = useRef<number | undefined>();
+  const headingRafRef = useRef<number | null>(null);
+  const pendingHeadingRef = useRef<number | undefined>();
   const hasRealFix = useRef(false);
 
   useEffect(() => {
@@ -55,15 +58,9 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
         if (!active) return;
         hasRealFix.current = true;
         const c = position.coords;
-        setSnapshot((current) => ({
-          ...current, isNative: true, source: "BrowserGeolocation", timestamp: position.timestamp,
-          latitude: c.latitude, longitude: c.longitude, altitudeM: c.altitude ?? undefined,
-          accuracyM: c.accuracy ?? undefined, speedMps: c.speed !== null ? c.speed : undefined,
-          courseBearingDeg: c.heading !== null ? normalizeHeading(c.heading) : current.courseBearingDeg,
-          fixQuality: c.accuracy !== null && c.accuracy <= 50 ? "3D" : "2D",
-        }));
+        setSnapshot((current) => ({ ...current, isNative: true, source: "BrowserGeolocation", timestamp: position.timestamp, latitude: c.latitude, longitude: c.longitude, altitudeM: c.altitude ?? undefined, accuracyM: c.accuracy ?? undefined, speedMps: c.speed !== null ? c.speed : undefined, courseBearingDeg: c.heading !== null ? normalizeHeading(c.heading) : current.courseBearingDeg, fixQuality: c.accuracy !== null && c.accuracy <= 50 ? "3D" : "2D" }));
       },
-      () => { /* retain the last valid fix */ },
+      () => { /* retain last valid fix */ },
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
     );
     return () => { active = false; navigator.geolocation.clearWatch(watchId); };
@@ -73,20 +70,36 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    const handler = (event: DeviceOrientationEvent) => { if (active) { const heading = orientationHeading(event); if (heading !== undefined) setSensorHeading(heading); } };
+    const handler = (event: DeviceOrientationEvent) => {
+      if (!active) return;
+      const heading = orientationHeading(event);
+      if (heading === undefined) return;
+      const previous = lastHeadingRef.current;
+      const delta = previous === undefined ? Infinity : Math.abs(((heading - previous + 540) % 360) - 180);
+      if (delta < 1) return;
+      lastHeadingRef.current = heading;
+      pendingHeadingRef.current = heading;
+      if (headingRafRef.current !== null) return;
+      headingRafRef.current = window.requestAnimationFrame(() => {
+        headingRafRef.current = null;
+        if (!active || pendingHeadingRef.current === undefined) return;
+        setSensorHeading(pendingHeadingRef.current);
+      });
+    };
     const eventName = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
     window.addEventListener(eventName, handler as EventListener, { passive: true });
-    return () => { active = false; window.removeEventListener(eventName, handler as EventListener); };
+    return () => {
+      active = false;
+      window.removeEventListener(eventName, handler as EventListener);
+      if (headingRafRef.current !== null) window.cancelAnimationFrame(headingRafRef.current);
+      headingRafRef.current = null;
+      pendingHeadingRef.current = undefined;
+    };
   }, []);
 
-  useEffect(() => {
-    const root = document.documentElement; root.classList.toggle("dark", theme === "dark"); root.lang = lang; root.dir = lang === "ar" ? "rtl" : "ltr";
-    window.localStorage.setItem("magellan.theme", theme); window.localStorage.setItem("magellan.lang", lang);
-  }, [theme, lang]);
-
+  useEffect(() => { const root = document.documentElement; root.classList.toggle("dark", theme === "dark"); root.lang = lang; root.dir = lang === "ar" ? "rtl" : "ltr"; window.localStorage.setItem("magellan.theme", theme); window.localStorage.setItem("magellan.lang", lang); }, [theme, lang]);
   const persistWaypoints = useCallback((next: Waypoint[]) => { setWaypoints(next); saveWaypoints(next); }, []);
   const persistGroups = useCallback((next: WaypointGroup[]) => { setGroups(next); saveGroups(next); }, []);
-
   const value = useMemo<MagellanState>(() => {
     const moving = (snapshot.speedMps ?? 0) > 0.7;
     const heading = moving ? snapshot.courseBearingDeg : snapshot.compassHeadingDeg;
@@ -104,7 +117,6 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
       clearHistory: () => { setHistory([]); saveHistory([]); }, lang, setLang, theme, setTheme, t: (k) => translate(lang, k),
     };
   }, [snapshot, waypoints, groups, history, activeWaypointId, lang, theme, persistWaypoints, persistGroups]);
-
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export function useMagellan(): MagellanState { const ctx = useContext(Ctx); if (!ctx) throw new Error("useMagellan must be used inside MagellanProvider"); return ctx; }
