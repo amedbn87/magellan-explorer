@@ -8,7 +8,7 @@ import { QrCanvas } from "@/components/magellan/QrCanvas";
 import { encodeLocationPayload, MAGELLAN_PAYLOAD_VERSION } from "@/lib/magellan/payload";
 import type { LocationPayloadV1 } from "@/lib/magellan/payload-types";
 import { TRANSPORTS, TRANSPORT_STATE_LABEL, send } from "@/lib/magellan/transports";
-import type { TransportId } from "@/lib/magellan/types";
+import type { GnssSnapshot, TransportId } from "@/lib/magellan/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,19 +32,29 @@ function SharePage() {
   const [name, setName] = useState("Magellan location");
   const [note, setNote] = useState("");
   const [transport, setTransport] = useState<TransportId>("qr");
+  const [capturedLiveSnapshot, setCapturedLiveSnapshot] = useState<GnssSnapshot | null>(null);
   const [qrValue, setQrValue] = useState("");
+
+  // A share is a point-in-time snapshot. Do not feed the continuously updating
+  // GNSS state directly into QR rendering; doing so makes Android WebView
+  // regenerate a canvas QR every tick and can freeze the UI.
+  useEffect(() => {
+    if (capturedLiveSnapshot) return;
+    if (snapshot.latitude === undefined || snapshot.longitude === undefined) return;
+    setCapturedLiveSnapshot(snapshot);
+  }, [snapshot, capturedLiveSnapshot]);
 
   const payload: LocationPayloadV1 | null = useMemo(() => {
     if (sourceId === "live") {
-      if (snapshot.latitude === undefined || snapshot.longitude === undefined) return null;
+      if (!capturedLiveSnapshot || capturedLiveSnapshot.latitude === undefined || capturedLiveSnapshot.longitude === undefined) return null;
       return {
         t: "MGLN",
         v: MAGELLAN_PAYLOAD_VERSION,
-        lat: Number(snapshot.latitude.toFixed(6)),
-        lon: Number(snapshot.longitude.toFixed(6)),
-        alt: snapshot.altitudeM != null ? Number(snapshot.altitudeM.toFixed(1)) : undefined,
-        acc: snapshot.accuracyM != null ? Number(snapshot.accuracyM.toFixed(1)) : undefined,
-        ts: Math.floor(snapshot.timestamp / 1000),
+        lat: Number(capturedLiveSnapshot.latitude.toFixed(6)),
+        lon: Number(capturedLiveSnapshot.longitude.toFixed(6)),
+        alt: capturedLiveSnapshot.altitudeM != null ? Number(capturedLiveSnapshot.altitudeM.toFixed(1)) : undefined,
+        acc: capturedLiveSnapshot.accuracyM != null ? Number(capturedLiveSnapshot.accuracyM.toFixed(1)) : undefined,
+        ts: Math.floor(capturedLiveSnapshot.timestamp / 1000),
         name: name || undefined,
         note: note || undefined,
         src: "demo",
@@ -63,11 +73,8 @@ function SharePage() {
       note: note || wp.note,
       src: "waypoint",
     };
-  }, [sourceId, snapshot, waypoints, name, note]);
+  }, [sourceId, capturedLiveSnapshot, waypoints, name, note]);
 
-  // Do not continuously regenerate QR data from the live GNSS ticker.
-  // On Android WebView this could repeatedly trigger canvas encoding and make
-  // the UI unresponsive. QR is a share snapshot, not a live telemetry display.
   useEffect(() => {
     let cancelled = false;
     if (!payload) {
