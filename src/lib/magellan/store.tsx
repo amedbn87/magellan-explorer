@@ -83,17 +83,16 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
           accuracyM: coords.accuracy ?? undefined,
           speedMps: coords.speed !== null ? coords.speed : undefined,
           courseBearingDeg: coords.heading !== null ? normalizeHeading(coords.heading) : current.courseBearingDeg,
-          compassHeadingDeg: sensorHeading ?? current.compassHeadingDeg,
           fixQuality: coords.accuracy !== null && coords.accuracy <= 50 ? "3D" : "2D",
         }));
       },
       () => {
-        // Keep the last valid fix; UI will continue to show unavailable values only when none exists.
+        // Keep the last valid fix when the platform temporarily withholds a position.
       },
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
     );
     return () => { active = false; navigator.geolocation.clearWatch(watchId); };
-  }, [sensorHeading]);
+  }, []);
 
   useEffect(() => {
     if (sensorHeading === undefined) return;
