@@ -7,6 +7,7 @@ import { DemoBadge, SimulatedNotice } from "@/components/magellan/DemoBadge";
 import { bearingDeg, cardinal, distanceMeters, formatCoord, formatDistance, isArrived, normalizeRelativeBearing } from "@/lib/magellan/geo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MarineConditions } from "@/components/magellan/MarineConditions";
 
 export const Route = createFileRoute("/navigate")({
   head: () => ({ meta: [{ title: "Navigation — Magellan" }, { name: "description", content: "Real-time destination direction, distance, speed, heading and location details." }] }),
@@ -71,6 +72,7 @@ function NavigatePage() {
           {target ? <Stat className="col-span-2 sm:col-span-3" label="Saved at" value={new Date(target.createdAt).toLocaleString()} hint={`Source: ${target.source ?? "manual"}`} /> : null}
         </div>
       </div>
+      {target ? <MarineConditions latitude={target.latitude} longitude={target.longitude} compact /> : null}
     </div>
   );
 }
