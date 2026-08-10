@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DemoGnssProvider, demoSnapshot } from "./demo-gnss";
 import type { GnssSnapshot, HistoryEntry, Waypoint, WaypointGroup } from "./types";
 import { loadGroups, loadHistory, loadWaypoints, saveGroups, saveHistory, saveWaypoints, SEED_GROUPS, SEED_WAYPOINTS, uid } from "./storage";
@@ -49,6 +49,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("en");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sensorHeading, setSensorHeading] = useState<number | undefined>();
+  const hasRealFix = useRef(false);
 
   useEffect(() => {
     setWaypoints(loadWaypoints());
@@ -62,7 +63,9 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const provider = new DemoGnssProvider(1000);
-    return provider.subscribe(setSnapshot);
+    return provider.subscribe((next) => {
+      if (!hasRealFix.current) setSnapshot(next);
+    });
   }, []);
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         if (!active) return;
+        hasRealFix.current = true;
         const coords = position.coords;
         setSnapshot((current) => ({
           ...current,
