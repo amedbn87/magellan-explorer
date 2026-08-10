@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { ScanLine } from "lucide-react";
 import { useMagellan } from "@/lib/magellan/store";
 import { PageHeader } from "@/components/magellan/primitives";
 import { QrCanvas } from "@/components/magellan/QrCanvas";
@@ -55,8 +56,8 @@ function SharePage() {
   }
 
   return <div className="space-y-5">
-    <PageHeader title={t("nav_share")} description="Prepare a point-in-time MGLN v1 payload without heavy work during page load." />
-    <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">QR generation is explicit. Opening and editing this screen does not start QR encoding.</div>
+    <PageHeader title={t("nav_share")} description="Prepare a point-in-time MGLN v1 payload without heavy work during page load." actions={<Button asChild variant="outline"><Link to="/receive"><ScanLine className="mr-2 h-4 w-4" />Receive Locations</Link></Button>} />
+    <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">QR generation is explicit. Opening and editing this screen does not start QR encoding. Use <Link className="font-medium text-primary underline" to="/receive">Receive Locations</Link> to scan, paste, save, navigate to, or re-share a received MGLN location.</div>
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-4 rounded-lg border border-border bg-card p-4">
         <div className="space-y-2"><Label htmlFor="src">Location source</Label><select id="src" value={sourceId} onChange={(e) => { setSourceId(e.target.value); setQrValue(""); }} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="live">Current location</option>{waypoints.map((w) => <option key={w.id} value={w.id}>Location · {w.name}</option>)}</select></div>
