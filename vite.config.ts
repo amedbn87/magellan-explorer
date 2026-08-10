@@ -6,18 +6,7 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig({
-  tanstackStart: {
-    // Capacitor needs a static client shell rather than a server-only Start output.
-    // SPA mode keeps the existing TanStack Router application and prerenders the
-    // root shell as a normal index.html that can be loaded by the Android WebView.
-    spa: {
-      enabled: true,
-      prerender: {
-        outputPath: "/index.html",
-        crawlLinks: false,
-        retryCount: 0,
-      },
-    },
-  },
-});
+// The Android/Capacitor bundle is built separately by vite.android.config.ts
+// (`bun run build:android` -> .output/public/index.html), so this web build stays
+// on the standard Lovable TanStack Start + nitro output.
+export default defineConfig({});
