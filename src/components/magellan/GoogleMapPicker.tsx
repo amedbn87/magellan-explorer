@@ -2,13 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { MapPin, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
-
 type Coordinates = { latitude: number; longitude: number };
+type LatLngLike = { lat(): number; lng(): number };
+type MapLike = { addListener(event: string, handler: (payload: { latLng?: LatLngLike }) => void): void };
+type MarkerLike = { addListener(event: string, handler: () => void): void; getPosition(): LatLngLike | null; setPosition(position: LatLngLike): void; setMap(map: MapLike | null): void };
+type MapsApi = {
+  maps: {
+    Map: new (element: HTMLElement, options: Record<string, unknown>) => MapLike;
+    Marker: new (options: Record<string, unknown>) => MarkerLike;
+  };
+};
+
+declare global { interface Window { google?: MapsApi } }
 
 let googleMapsPromise: Promise<void> | null = null;
 
@@ -17,7 +22,6 @@ function loadGoogleMaps(): Promise<void> {
   if (googleMapsPromise) return googleMapsPromise;
   const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   if (!key) return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY is not configured."));
-
   googleMapsPromise = new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-magellan-google-maps="true"]');
     if (existing) {
@@ -39,78 +43,36 @@ function loadGoogleMaps(): Promise<void> {
 
 export function GoogleMapPicker({ initial, onConfirm }: { initial: Coordinates; onConfirm: (coords: Coordinates) => void }) {
   const mapElement = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const markerRef = useRef<MarkerLike | null>(null);
   const [coords, setCoords] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    void loadGoogleMaps()
-      .then(() => {
-        if (cancelled || !mapElement.current || !window.google?.maps) return;
-        const position = { lat: initial.latitude, lng: initial.longitude };
-        const map = new window.google.maps.Map(mapElement.current, {
-          center: position,
-          zoom: 13,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
-        const marker = new window.google.maps.Marker({ position, map, draggable: true, title: "Magellan destination" });
-        mapRef.current = map;
-        markerRef.current = marker;
-        marker.addListener("dragend", () => {
-          const p = marker.getPosition();
-          if (!p) return;
-          setCoords({ latitude: p.lat(), longitude: p.lng() });
-        });
-        map.addListener("click", (event: google.maps.MapMouseEvent) => {
-          if (!event.latLng) return;
-          marker.setPosition(event.latLng);
-          setCoords({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
-        });
-        setLoading(false);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setLoading(false);
-          setError(e instanceof Error ? e.message : "Google Maps unavailable.");
-        }
+    void loadGoogleMaps().then(() => {
+      if (cancelled || !mapElement.current || !window.google?.maps) return;
+      const position = { lat: initial.latitude, lng: initial.longitude };
+      const map = new window.google.maps.Map(mapElement.current, { center: position, zoom: 13, mapTypeControl: false, streetViewControl: false, fullscreenControl: false });
+      const marker = new window.google.maps.Marker({ position, map, draggable: true, title: "Magellan destination" });
+      markerRef.current = marker;
+      marker.addListener("dragend", () => {
+        const p = marker.getPosition();
+        if (p) setCoords({ latitude: p.lat(), longitude: p.lng() });
       });
-
-    return () => {
-      cancelled = true;
-      if (markerRef.current) markerRef.current.setMap(null);
-      markerRef.current = null;
-      mapRef.current = null;
-    };
+      map.addListener("click", (event) => {
+        if (!event.latLng) return;
+        marker.setPosition(event.latLng);
+        setCoords({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
+      });
+      setLoading(false);
+    }).catch((e: unknown) => {
+      if (!cancelled) { setLoading(false); setError(e instanceof Error ? e.message : "Google Maps unavailable."); }
+    });
+    return () => { cancelled = true; markerRef.current?.setMap(null); markerRef.current = null; };
   }, [initial.latitude, initial.longitude]);
 
-  if (error) {
-    return (
-      <div className="space-y-3 rounded-lg border border-destructive/30 bg-card p-4">
-        <div className="flex gap-2 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Configure VITE_GOOGLE_MAPS_API_KEY for the interactive picker. Your saved coordinate model does not depend on the map provider.
-        </p>
-      </div>
-    );
-  }
+  if (error) return <div className="space-y-3 rounded-lg border border-destructive/30 bg-card p-4"><div className="flex gap-2 text-sm text-destructive"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div><p className="text-xs text-muted-foreground">Configure VITE_GOOGLE_MAPS_API_KEY for the interactive picker. Coordinates remain provider-independent.</p></div>;
 
-  return (
-    <div className="space-y-3">
-      <div ref={mapElement} className="h-72 w-full overflow-hidden rounded-lg border border-border bg-muted" aria-label="Google map location picker" />
-      {loading ? <p className="text-xs text-muted-foreground">Loading Google Maps…</p> : null}
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm">
-        <MapPin className="h-4 w-4 shrink-0 text-primary" />
-        <span className="numeric flex-1">{coords.latitude.toFixed(6)}, {coords.longitude.toFixed(6)}</span>
-        <Button size="sm" onClick={() => onConfirm(coords)} disabled={loading}>Use this location</Button>
-      </div>
-    </div>
-  );
+  return <div className="space-y-3"><div ref={mapElement} className="h-72 w-full overflow-hidden rounded-lg border border-border bg-muted" aria-label="Google map location picker" />{loading ? <p className="text-xs text-muted-foreground">Loading Google Maps…</p> : null}<div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm"><MapPin className="h-4 w-4 shrink-0 text-primary" /><span className="numeric flex-1">{coords.latitude.toFixed(6)}, {coords.longitude.toFixed(6)}</span><Button size="sm" onClick={() => onConfirm(coords)} disabled={loading}>Use this location</Button></div></div>;
 }
