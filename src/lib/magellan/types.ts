@@ -8,9 +8,6 @@ export type Constellation =
   | "IRNSS"
   | "UNKNOWN";
 
-/** Mirrors android.location.GnssStatus per-satellite fields.
- *  Fields that Android may not report are optional and must stay
- *  `undefined` (rendered as "unavailable") — never fabricated. */
 export interface SatelliteInfo {
   id: string;
   constellation: Constellation;
@@ -28,8 +25,9 @@ export interface SatelliteInfo {
 export type FixQuality = "NO_FIX" | "ACQUIRING" | "2D" | "3D" | "DGNSS";
 
 export interface GnssSnapshot {
+  /** true only when values come from a real device location/sensor source */
   isNative: boolean;
-  source: "DemoGnssProvider" | "AndroidGnssStatus";
+  source: "DemoGnssProvider" | "BrowserGeolocation" | "AndroidGnssStatus";
   timestamp: number;
   latitude?: number | undefined;
   longitude?: number | undefined;
