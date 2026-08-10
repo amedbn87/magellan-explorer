@@ -30,12 +30,6 @@ export function OpenStreetMapPicker({ initial, onConfirm }: { initial: Coordinat
         setCoords({ latitude: lat, longitude: lng });
       };
       map.on("click", (event) => update(event.latlng.lat, event.latlng.lng));
-      marker.on("dragend", () => {
-        const p = marker.getLatLng();
-        update(p.lat, p.lng);
-      });
-      marker.options.interactive = true;
-      marker.dragging?.enable();
       mapRef.current = map;
       markerRef.current = marker;
       setLoading(false);
