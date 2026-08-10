@@ -16,38 +16,49 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-
+          cache: gradle
       - name: Install dependencies
         run: npm install
-
       - name: Install Capacitor
         run: npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-
-      - name: Build web application
-        run: npm run build
-
+      - name: Build web application for Android
+        run: npm run build:android
+      - name: Prepare Capacitor web assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          if [ -f .output/public/index.html ]; then
+            cp -R .output/public dist
+          elif [ -f dist/index.html ]; then
+            echo "dist already contains index.html"
+          else
+            echo "No static web output with index.html was produced."
+            find . -maxdepth 4 -type f -name 'index.html' | head -100
+            exit 1
+          fi
+          test -f dist/index.html
       - name: Prepare Android project
         run: |
           rm -rf android
           npx cap add android
           npx cap sync android
-
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
-
+      - name: Verify APK exists
+        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
