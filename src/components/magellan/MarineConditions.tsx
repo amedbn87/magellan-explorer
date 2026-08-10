@@ -1,31 +1,62 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CloudSun, Fish, Gauge, Waves, Wind } from "lucide-react";
 import { fetchMarineConditions, type MarineConditions } from "@/lib/magellan/marine";
 import { Stat } from "@/components/magellan/primitives";
+import { distanceMeters } from "@/lib/magellan/geo";
+
+const REFRESH_MS = 5 * 60 * 1000;
+const MIN_MOVE_M = 250;
+const DEBOUNCE_MS = 900;
 
 export function MarineConditions({ latitude, longitude, compact = false }: { latitude?: number; longitude?: number; compact?: boolean }) {
   const [data, setData] = useState<MarineConditions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastRequestRef = useRef<{ latitude: number; longitude: number; at: number } | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (latitude === undefined || longitude === undefined) {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
       setData(null);
       setError(null);
       return;
     }
-    const controller = new AbortController();
-    let active = true;
-    setLoading(true);
-    setError(null);
-    void fetchMarineConditions(latitude, longitude, controller.signal)
-      .then((next) => { if (active) setData(next); })
-      .catch((e: unknown) => {
-        if (!active || controller.signal.aborted) return;
-        setError(e instanceof Error ? e.message : "Marine data unavailable");
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; controller.abort(); };
+
+    const previous = lastRequestRef.current;
+    const moved = previous ? distanceMeters(previous.latitude, previous.longitude, latitude, longitude) : Infinity;
+    const freshEnough = previous ? Date.now() - previous.at < REFRESH_MS : false;
+
+    // GPS can update every second. Marine/weather data does not need that
+    // frequency. Re-fetching two remote endpoints for every GPS callback can
+    // create a fetch/abort/render storm in Android WebView and starve touch.
+    if (previous && (freshEnough || moved < MIN_MOVE_M)) return;
+
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      const controller = new AbortController();
+      let active = true;
+      setLoading(true);
+      setError(null);
+      lastRequestRef.current = { latitude, longitude, at: Date.now() };
+      void fetchMarineConditions(latitude, longitude, controller.signal)
+        .then((next) => { if (active) setData(next); })
+        .catch((e: unknown) => {
+          if (!active || controller.signal.aborted) return;
+          // Keep the last successful values visible when a transient network
+          // request fails; the error is informational rather than a blocking UI state.
+          setError(e instanceof Error ? e.message : "Marine data unavailable");
+        })
+        .finally(() => { if (active) setLoading(false); });
+      return () => { active = false; controller.abort(); };
+    }, DEBOUNCE_MS);
+
+    return () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    };
   }, [latitude, longitude]);
 
   return (
