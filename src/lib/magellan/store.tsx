@@ -9,12 +9,15 @@ import {
 } from "react";
 import { DemoGnssProvider } from "./demo-gnss";
 import { demoSnapshot } from "./demo-gnss";
-import type { GnssSnapshot, HistoryEntry, Waypoint } from "./types";
+import type { GnssSnapshot, HistoryEntry, Waypoint, WaypointGroup } from "./types";
 import {
+  loadGroups,
   loadHistory,
   loadWaypoints,
+  saveGroups,
   saveHistory,
   saveWaypoints,
+  SEED_GROUPS,
   SEED_WAYPOINTS,
   uid,
 } from "./storage";
@@ -24,13 +27,16 @@ export type HeadingSource = "course" | "compass";
 
 interface MagellanState {
   snapshot: GnssSnapshot;
-  /** heading actually used for the navigation arrow */
   heading: number | undefined;
   headingSource: HeadingSource | "unavailable";
   waypoints: Waypoint[];
+  groups: WaypointGroup[];
   addWaypoint: (w: Omit<Waypoint, "id" | "createdAt">) => Waypoint;
   updateWaypoint: (id: string, patch: Partial<Waypoint>) => void;
   deleteWaypoint: (id: string) => void;
+  addGroup: (name: string) => WaypointGroup | null;
+  updateGroup: (id: string, name: string) => void;
+  deleteGroup: (id: string) => void;
   activeWaypointId: string | null;
   setActiveWaypointId: (id: string | null) => void;
   history: HistoryEntry[];
@@ -45,17 +51,35 @@ interface MagellanState {
 
 const Ctx = createContext<MagellanState | null>(null);
 
+function normalizeHeading(value: number): number {
+  return ((value % 360) + 360) % 360;
+}
+
+function orientationHeading(event: DeviceOrientationEvent): number | undefined {
+  const alpha = event.alpha;
+  if (alpha === null) return undefined;
+  const webkit = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
+  if (typeof webkit.webkitCompassHeading === "number" && Number.isFinite(webkit.webkitCompassHeading)) {
+    return normalizeHeading(webkit.webkitCompassHeading);
+  }
+  return normalizeHeading(360 - alpha);
+}
+
 export function MagellanProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<GnssSnapshot>(() => demoSnapshot(0));
   const [waypoints, setWaypoints] = useState<Waypoint[]>(SEED_WAYPOINTS);
+  const [groups, setGroups] = useState<WaypointGroup[]>(SEED_GROUPS);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [activeWaypointId, setActiveWaypointId] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [sensorHeading, setSensorHeading] = useState<number | undefined>(undefined);
 
-  // Hydrate persisted prototype state after mount (avoids SSR mismatch).
   useEffect(() => {
-    setWaypoints(loadWaypoints());
+    const loadedWaypoints = loadWaypoints();
+    const loadedGroups = loadGroups();
+    setWaypoints(loadedWaypoints);
+    setGroups(loadedGroups);
     setHistory(loadHistory());
     const l = window.localStorage.getItem("magellan.lang");
     if (l === "ar" || l === "en") setLang(l);
@@ -65,7 +89,28 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const provider = new DemoGnssProvider(1000);
-    return provider.subscribe(setSnapshot);
+    return provider.subscribe((next) => {
+      setSnapshot((current) => ({
+        ...next,
+        compassHeadingDeg: sensorHeading ?? next.compassHeadingDeg,
+      }));
+    });
+  }, [sensorHeading]);
+
+  useEffect(() => {
+    let active = true;
+    const handler = (event: DeviceOrientationEvent) => {
+      if (!active) return;
+      const heading = orientationHeading(event);
+      if (heading !== undefined) setSensorHeading(heading);
+    };
+
+    const eventName = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
+    window.addEventListener(eventName, handler as EventListener, { passive: true });
+    return () => {
+      active = false;
+      window.removeEventListener(eventName, handler as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -82,8 +127,12 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
     saveWaypoints(next);
   }, []);
 
+  const persistGroups = useCallback((next: WaypointGroup[]) => {
+    setGroups(next);
+    saveGroups(next);
+  }, []);
+
   const value = useMemo<MagellanState>(() => {
-    // Course bearing while moving; compass while effectively stationary.
     const moving = (snapshot.speedMps ?? 0) > 0.7;
     const heading = moving ? snapshot.courseBearingDeg : snapshot.compassHeadingDeg;
     const headingSource: MagellanState["headingSource"] =
@@ -94,6 +143,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
       heading,
       headingSource,
       waypoints,
+      groups,
       addWaypoint: (w) => {
         const wp: Waypoint = { ...w, id: uid(), createdAt: Date.now() };
         persistWaypoints([wp, ...waypoints]);
@@ -102,6 +152,22 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
       updateWaypoint: (id, patch) =>
         persistWaypoints(waypoints.map((w) => (w.id === id ? { ...w, ...patch } : w))),
       deleteWaypoint: (id) => persistWaypoints(waypoints.filter((w) => w.id !== id)),
+      addGroup: (name) => {
+        const trimmed = name.trim();
+        if (!trimmed || groups.some((g) => g.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase())) return null;
+        const group = { id: uid(), name: trimmed, createdAt: Date.now() };
+        persistGroups([group, ...groups]);
+        return group;
+      },
+      updateGroup: (id, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        persistGroups(groups.map((g) => (g.id === id ? { ...g, name: trimmed } : g)));
+      },
+      deleteGroup: (id) => {
+        persistGroups(groups.filter((g) => g.id !== id));
+        persistWaypoints(waypoints.map((w) => (w.groupId === id ? { ...w, groupId: undefined } : w)));
+      },
       activeWaypointId,
       setActiveWaypointId,
       history,
@@ -120,7 +186,7 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
       setTheme,
       t: (k) => translate(lang, k),
     };
-  }, [snapshot, waypoints, history, activeWaypointId, lang, theme, persistWaypoints]);
+  }, [snapshot, waypoints, groups, history, activeWaypointId, lang, theme, persistWaypoints, persistGroups]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
