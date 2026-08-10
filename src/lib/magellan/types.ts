@@ -15,16 +15,11 @@ export interface SatelliteInfo {
   id: string;
   constellation: Constellation;
   svid: number;
-  /** degrees 0..360, from GnssStatus.getAzimuthDegrees */
   azimuthDeg: number;
-  /** degrees 0..90, from GnssStatus.getElevationDegrees */
   elevationDeg: number;
-  /** dB-Hz, from GnssStatus.getCn0DbHz */
   cn0DbHz: number;
   usedInFix: boolean;
-  /** Hz — API 26+, hasCarrierFrequencyHz() */
   carrierFrequencyHz?: number | undefined;
-  /** API 30+, hasBasebandCn0DbHz() */
   basebandCn0DbHz?: number | undefined;
   hasAlmanac?: boolean | undefined;
   hasEphemeris?: boolean | undefined;
@@ -33,7 +28,6 @@ export interface SatelliteInfo {
 export type FixQuality = "NO_FIX" | "ACQUIRING" | "2D" | "3D" | "DGNSS";
 
 export interface GnssSnapshot {
-  /** true only when values come from a real Android GnssStatus bridge */
   isNative: boolean;
   source: "DemoGnssProvider" | "AndroidGnssStatus";
   timestamp: number;
@@ -42,14 +36,18 @@ export interface GnssSnapshot {
   altitudeM?: number | undefined;
   accuracyM?: number | undefined;
   speedMps?: number | undefined;
-  /** course over ground, degrees */
   courseBearingDeg?: number | undefined;
-  /** magnetometer / compass heading, degrees */
   compassHeadingDeg?: number | undefined;
   fixQuality: FixQuality;
   satellitesVisible: number;
   satellitesUsedInFix: number;
   satellites: SatelliteInfo[];
+}
+
+export interface WaypointGroup {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface Waypoint {
@@ -58,7 +56,10 @@ export interface Waypoint {
   latitude: number;
   longitude: number;
   altitudeM?: number | undefined;
+  accuracyM?: number | undefined;
   note?: string | undefined;
+  groupId?: string | undefined;
+  source?: "live" | "map" | "manual" | "received" | undefined;
   createdAt: number;
 }
 
@@ -90,6 +91,5 @@ export interface TransportDescriptor {
   name: string;
   detail: string;
   state: TransportState;
-  /** true when this transport genuinely works inside the browser prototype */
   worksInBrowser: boolean;
 }
