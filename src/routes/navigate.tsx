@@ -14,7 +14,7 @@ export const Route = createFileRoute("/navigate")({
 });
 
 function NavigatePage() {
-  const { snapshot, waypoints, groups, activeWaypointId, setActiveWaypointId, heading, headingSource, addHistory, t } = useMagellan();
+  const { snapshot, waypoints, groups, activeWaypointId, setActiveWaypointId, heading, headingSource, t } = useMagellan();
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("waypoint");
@@ -29,10 +29,6 @@ function NavigatePage() {
   const relative = targetBearing !== undefined && heading !== undefined ? normalizeRelativeBearing(targetBearing, heading) : undefined;
   const arrived = distance !== undefined && isArrived(distance, snapshot.accuracyM);
   const state = !target ? t("idle") : arrived ? t("arrived") : t("navigating");
-
-  useEffect(() => {
-    if (target) addHistory({ kind: "navigated", transport: "local-network", label: target.name, latitude: target.latitude, longitude: target.longitude, accuracyM: snapshot.accuracyM });
-  }, [target?.id]);
 
   return (
     <div className="space-y-5">
@@ -71,7 +67,8 @@ function NavigatePage() {
           <Stat label="Altitude" value={snapshot.altitudeM?.toFixed(1)} unit="m" />
           <Stat label="Fix" value={snapshot.fixQuality} />
           <Stat className="col-span-2 sm:col-span-3" label="Destination coordinates" value={target ? formatCoord(target.latitude, target.longitude) : undefined} hint={target?.note ?? undefined} />
-          <Stat className="col-span-2 sm:col-span-3" label="Current position timestamp" value={new Date(snapshot.timestamp).toLocaleString()} hint="Hour, minute and second are derived from the stored millisecond timestamp." />
+          <Stat className="col-span-2 sm:col-span-3" label="Current position timestamp" value={new Date(snapshot.timestamp).toLocaleString()} hint="Hour, minute and second are derived from the stored timestamp." />
+          {target ? <Stat className="col-span-2 sm:col-span-3" label="Saved at" value={new Date(target.createdAt).toLocaleString()} hint={`Source: ${target.source ?? "manual"}`} /> : null}
         </div>
       </div>
     </div>
