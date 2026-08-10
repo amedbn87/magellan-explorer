@@ -4,20 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
- */
-
 @theme inline {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
@@ -150,16 +136,17 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--color-border);
-  }
-
+  * { border-color: var(--color-border); }
+  html { -webkit-text-size-adjust: 100%; }
   body {
+    margin: 0;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
   }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 
 @utility numeric {
@@ -176,17 +163,36 @@
   color: var(--color-muted-foreground);
 }
 
-/* Android System WebView performance guard. Capacitor Android relies on the
- * system WebView, and blur-heavy compositor surfaces are known to be costly.
- * Keep the richer browser presentation while removing backdrop filtering in
- * the native Android runtime. */
+/* Android System WebView safety profile. Avoid expensive compositor effects
+ * and CSS animations/transitions while preserving the application design. */
+html.magellan-android,
+html.magellan-android body {
+  -webkit-overflow-scrolling: auto;
+}
+
 html.magellan-android .backdrop-blur,
 html.magellan-android [class*="backdrop-blur-"] {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
 
+html.magellan-android * {
+  scroll-behavior: auto !important;
+  animation: none !important;
+  transition: none !important;
+}
+
 html.magellan-android header,
 html.magellan-android nav {
   background-color: var(--background) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.magellan-android button,
+html.magellan-android a,
+html.magellan-android input,
+html.magellan-android select,
+html.magellan-android textarea {
+  touch-action: manipulation;
 }
