@@ -5,10 +5,21 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       node: 22
-      java: 17
+      java: 21
     scripts:
+      - name: Verify build toolchain
+        script: |
+          set -euo pipefail
+          echo '=== TOOLCHAIN ==='
+          node --version
+          npm --version
+          java -version
+          javac -version
+          echo '=== TOOLCHAIN OK ==='
       - name: Install dependencies
-        script: npm install
+        script: |
+          set -euo pipefail
+          npm install
       - name: Build standalone Android web bundle
         script: |
           set -o pipefail
@@ -69,14 +80,13 @@ workflows:
             echo '=== GRADLE APK BUILD ==='
             cd android
             chmod +x gradlew
-            ./gradlew :app:tasks --all | grep -E 'assemble.*Debug|package.*Debug|bundle.*Debug' || true
-            sed -n '1,260p' app/build.gradle 2>/dev/null || sed -n '1,260p' app/build.gradle.kts
+            java -version
+            ./gradlew --version
             ./gradlew clean --no-daemon --stacktrace
-            ./gradlew :app:packageDebug --no-daemon --rerun-tasks --stacktrace --info
             ./gradlew :app:assembleDebug --no-daemon --rerun-tasks --stacktrace --info
             find . -type f \( -name '*.apk' -o -name '*.aab' \) -print | sort
             find . -type d -path '*/build/outputs/*' -print | sort
-            APK_PATH=$(find . -type f -name '*.apk' -print -quit)
+            APK_PATH=$(find app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)
             if [ -z "$APK_PATH" ]; then
               echo 'ERROR: Gradle completed but no APK was generated.'
               ./gradlew :app:tasks --all | grep -Ei 'debug|apk|package|assemble' | tail -n 200 || true
