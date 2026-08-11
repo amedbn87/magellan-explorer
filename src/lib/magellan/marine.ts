@@ -2,18 +2,18 @@ export interface MarineConditions {
   latitude: number;
   longitude: number;
   observedAt: string;
-  windSpeedKmh?: number;
-  windDirectionDeg?: number;
-  pressureHpa?: number;
-  airTemperatureC?: number;
-  waveHeightM?: number;
-  wavePeriodS?: number;
-  waveDirectionDeg?: number;
-  seaTemperatureC?: number;
-  currentSpeedKmh?: number;
-  currentDirectionDeg?: number;
-  sunrise?: string;
-  sunset?: string;
+  windSpeedKmh?: number | undefined;
+  windDirectionDeg?: number | undefined;
+  pressureHpa?: number | undefined;
+  airTemperatureC?: number | undefined;
+  waveHeightM?: number | undefined;
+  wavePeriodS?: number | undefined;
+  waveDirectionDeg?: number | undefined;
+  seaTemperatureC?: number | undefined;
+  currentSpeedKmh?: number | undefined;
+  currentDirectionDeg?: number | undefined;
+  sunrise?: string | undefined;
+  sunset?: string | undefined;
   fishingActivity: "Low" | "Moderate" | "High" | "Unavailable";
   fishingActivityReason: string;
   source: string;
@@ -65,11 +65,11 @@ function moonAge(date: Date): number {
 
 function fishingActivity(input: {
   now: Date;
-  windKmh?: number;
-  waveM?: number;
-  pressure?: number;
-  sunrise?: string;
-  sunset?: string;
+  windKmh?: number | undefined;
+  waveM?: number | undefined;
+  pressure?: number | undefined;
+  sunrise?: string | undefined;
+  sunset?: string | undefined;
 }): { level: MarineConditions["fishingActivity"]; reason: string } {
   const factors: number[] = [];
   if (input.windKmh !== undefined) factors.push(input.windKmh <= 18 ? 2 : input.windKmh <= 30 ? 1 : 0);
@@ -110,8 +110,8 @@ export async function fetchMarineConditions(latitude: number, longitude: number,
   });
 
   const [weatherResponse, marineResponse] = await Promise.all([
-    fetch(`${WEATHER_ENDPOINT}?${params.toString()}`, { signal }),
-    fetch(`${MARINE_ENDPOINT}?${marineParams.toString()}`, { signal }),
+    fetch(`${WEATHER_ENDPOINT}?${params.toString()}`, { signal: signal ?? null }),
+    fetch(`${MARINE_ENDPOINT}?${marineParams.toString()}`, { signal: signal ?? null }),
   ]);
   if (!weatherResponse.ok) throw new Error(`Weather service returned HTTP ${weatherResponse.status}`);
   if (!marineResponse.ok) throw new Error(`Marine service returned HTTP ${marineResponse.status}`);

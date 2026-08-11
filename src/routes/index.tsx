@@ -21,8 +21,9 @@ function Index() {
   const byConstellation = new Map<string, { v: number; u: number }>();
   for (const sat of s.satellites) { const e = byConstellation.get(sat.constellation) ?? { v: 0, u: 0 }; e.v += 1; if (sat.usedInFix) e.u += 1; byConstellation.set(sat.constellation, e); }
   const nearby = useMemo(() => {
-    if (s.latitude === undefined || s.longitude === undefined) return waypoints.slice(0, 8).map((waypoint) => ({ waypoint, distance: undefined as number | undefined }));
-    return [...waypoints].map((waypoint) => ({ waypoint, distance: distanceMeters(s.latitude, s.longitude, waypoint.latitude, waypoint.longitude) })).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)).slice(0, 8);
+    const lat = s.latitude; const lon = s.longitude;
+    if (lat === undefined || lon === undefined) return waypoints.slice(0, 8).map((waypoint) => ({ waypoint, distance: undefined as number | undefined }));
+    return [...waypoints].map((waypoint) => ({ waypoint, distance: distanceMeters(lat, lon, waypoint.latitude, waypoint.longitude) })).sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity)).slice(0, 8);
   }, [s.latitude, s.longitude, waypoints]);
   function quickSave() {
     if (s.latitude === undefined || s.longitude === undefined) return void toast.error("Current GNSS position is unavailable");
