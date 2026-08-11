@@ -18,21 +18,41 @@ export function OpenStreetMapPicker({ initial, onConfirm }: { initial: Coordinat
 
   useEffect(() => {
     let cancelled = false;
+    const frames: number[] = [];
+    // Android WebView: creating the map, attaching tiles and adding the marker in
+    // one synchronous block is a single long task that blocks paint and input.
+    // Split the work across committed animation frames, same paint-gating
+    // pattern used by QrCanvas.
+    const nextFrame = (fn: () => void) => {
+      frames.push(window.requestAnimationFrame(() => { if (!cancelled) fn(); }));
+    };
     void import("leaflet").then((module) => {
       if (cancelled || !elementRef.current || mapRef.current) return;
       const L = module.default;
-      const map = L.map(elementRef.current, { zoomControl: true, attributionControl: true, preferCanvas: false }).setView([initial.latitude, initial.longitude], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
-      const marker = L.marker([initial.latitude, initial.longitude], { draggable: true }).addTo(map);
-      const update = (lat: number, lng: number) => { marker.setLatLng([lat, lng]); setCoords({ latitude: lat, longitude: lng }); };
-      map.on("click", (event) => update(event.latlng.lat, event.latlng.lng));
-      marker.on("dragend", () => { const p = marker.getLatLng(); update(p.lat, p.lng); });
-      mapRef.current = map;
-      markerRef.current = marker;
-      setLoading(false);
-      window.setTimeout(() => { if (!cancelled) map.invalidateSize({ animate: false }); }, 0);
+      nextFrame(() => {
+        if (!elementRef.current || mapRef.current) return;
+        const map = L.map(elementRef.current, { zoomControl: true, attributionControl: true, preferCanvas: false }).setView([initial.latitude, initial.longitude], 13);
+        mapRef.current = map;
+        nextFrame(() => {
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
+          nextFrame(() => {
+            const marker = L.marker([initial.latitude, initial.longitude], { draggable: true }).addTo(map);
+            const update = (lat: number, lng: number) => { marker.setLatLng([lat, lng]); setCoords({ latitude: lat, longitude: lng }); };
+            map.on("click", (event) => update(event.latlng.lat, event.latlng.lng));
+            marker.on("dragend", () => { const p = marker.getLatLng(); update(p.lat, p.lng); });
+            markerRef.current = marker;
+            setLoading(false);
+            nextFrame(() => map.invalidateSize({ animate: false }));
+          });
+        });
+      });
     }).catch((e: unknown) => { if (!cancelled) { setLoading(false); setError(e instanceof Error ? e.message : "Map unavailable"); } });
-    return () => { cancelled = true; markerRef.current?.remove(); markerRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
+    return () => {
+      cancelled = true;
+      for (const id of frames) window.cancelAnimationFrame(id);
+      markerRef.current?.remove(); markerRef.current = null;
+      mapRef.current?.remove(); mapRef.current = null;
+    };
     // The map is a long-lived native-like widget. Do not recreate it on every GNSS update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
