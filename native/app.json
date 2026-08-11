@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "Magellan",
+    "slug": "magellan-native",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "magellan",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.khaledahmed.magellan",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Magellan needs your location for GNSS navigation, waypoints, and sharing your position.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Magellan needs your location for GNSS navigation, waypoints, and sharing your position.",
+        "UIBackgroundModes": ["location"]
+      }
+    },
+    "android": {
+      "package": "com.khaledahmed.magellan",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "NFC",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_STATE",
+        "NEARBY_WIFI_DEVICES"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Magellan needs your location for GNSS navigation, waypoints, and sharing your position."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Magellan needs camera access to scan location QR codes."
+        }
+      ],
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": { "compileSdkVersion": 35, "targetSdkVersion": 35 }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

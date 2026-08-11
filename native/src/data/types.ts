@@ -1,0 +1,98 @@
+export type Constellation =
+  | "GPS"
+  | "GALILEO"
+  | "GLONASS"
+  | "BEIDOU"
+  | "QZSS"
+  | "SBAS"
+  | "IRNSS"
+  | "UNKNOWN";
+
+export interface SatelliteInfo {
+  id: string;
+  constellation: Constellation;
+  svid: number;
+  azimuthDeg: number;
+  elevationDeg: number;
+  cn0DbHz: number;
+  usedInFix: boolean;
+  carrierFrequencyHz?: number | undefined;
+  basebandCn0DbHz?: number | undefined;
+  hasAlmanac?: boolean | undefined;
+  hasEphemeris?: boolean | undefined;
+}
+
+export type FixQuality = "NO_FIX" | "ACQUIRING" | "2D" | "3D" | "DGNSS";
+
+/**
+ * "source" gains AndroidGnssStatus/iOSCoreLocation as real native sources.
+ * DemoGnssProvider only exists for Storybook-style previews and must never
+ * ship visible to the user without a DEMO label (see AGENTS rule below).
+ */
+export interface GnssSnapshot {
+  /** true only when values come from a real device location/sensor source */
+  isNative: boolean;
+  source: "DemoGnssProvider" | "AndroidGnssStatus" | "ExpoLocation" | "iOSCoreLocation";
+  timestamp: number;
+  latitude?: number | undefined;
+  longitude?: number | undefined;
+  altitudeM?: number | undefined;
+  accuracyM?: number | undefined;
+  speedMps?: number | undefined;
+  courseBearingDeg?: number | undefined;
+  compassHeadingDeg?: number | undefined;
+  fixQuality: FixQuality;
+  satellitesVisible: number;
+  satellitesUsedInFix: number;
+  satellites: SatelliteInfo[];
+}
+
+export interface WaypointGroup {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export interface Waypoint {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  altitudeM?: number | undefined;
+  accuracyM?: number | undefined;
+  note?: string | undefined;
+  groupId?: string | undefined;
+  source?: "live" | "map" | "manual" | "received" | undefined;
+  createdAt: number;
+}
+
+export type HistoryKind = "shared" | "received" | "navigated";
+
+export interface HistoryEntry {
+  id: string;
+  kind: HistoryKind;
+  transport: TransportId;
+  label: string;
+  latitude: number;
+  longitude: number;
+  accuracyM?: number | undefined;
+  at: number;
+}
+
+export type TransportId = "qr" | "bluetooth" | "wifi-direct" | "local-network" | "nfc";
+
+export type TransportState =
+  | "SUPPORTED"
+  | "AVAILABLE"
+  | "CONNECTED"
+  | "READY"
+  | "PERMISSION_REQUIRED"
+  | "UNAVAILABLE";
+
+export interface TransportDescriptor {
+  id: TransportId;
+  name: string;
+  detail: string;
+  state: TransportState;
+  worksInBrowser: boolean;
+}

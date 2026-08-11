@@ -1,0 +1,7 @@
+{
+  "name": "magellan-gnss",
+  "version": "0.1.0",
+  "description": "Real Android GnssStatus (satellites, C/N0, constellation) bridge for Magellan. Android-only: iOS CoreLocation does not expose raw per-satellite data, so this module has no iOS implementation and must not be faked there.",
+  "main": "index.ts",
+  "private": true
+}
