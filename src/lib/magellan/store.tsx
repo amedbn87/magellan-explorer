@@ -36,8 +36,8 @@ export function MagellanProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("en");
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sensorHeading, setSensorHeading] = useState<number | undefined>();
-  const lastHeadingRef = useRef<number | undefined>();
-  const pendingHeadingRef = useRef<number | undefined>();
+  const lastHeadingRef = useRef<number | undefined>(undefined);
+  const pendingHeadingRef = useRef<number | undefined>(undefined);
   const headingTimerRef = useRef<number | null>(null);
   const lastLocationUpdateRef = useRef(0);
   const hasRealFix = useRef(false);

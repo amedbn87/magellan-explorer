@@ -20,7 +20,7 @@ let googleMapsPromise: Promise<void> | null = null;
 function loadGoogleMaps(): Promise<void> {
   if (window.google?.maps) return Promise.resolve();
   if (googleMapsPromise) return googleMapsPromise;
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const key = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string | undefined;
   if (!key) return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY is not configured."));
   googleMapsPromise = new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-magellan-google-maps="true"]');
@@ -30,7 +30,7 @@ function loadGoogleMaps(): Promise<void> {
       return;
     }
     const script = document.createElement("script");
-    script.dataset.magellanGoogleMaps = "true";
+    script.dataset['magellanGoogleMaps'] = "true";
     script.async = true;
     script.defer = true;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}`;

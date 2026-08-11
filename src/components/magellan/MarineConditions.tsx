@@ -8,7 +8,7 @@ const REFRESH_MS = 5 * 60 * 1000;
 const MIN_MOVE_M = 250;
 const DEBOUNCE_MS = 900;
 
-export function MarineConditions({ latitude, longitude, compact = false }: { latitude?: number; longitude?: number; compact?: boolean }) {
+export function MarineConditions({ latitude, longitude, compact = false }: { latitude?: number | undefined; longitude?: number | undefined; compact?: boolean | undefined }) {
   const [data, setData] = useState<MarineConditions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
