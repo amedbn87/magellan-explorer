@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useMagellan } from "../../src/state/MagellanProvider";
 import { Screen, Title, Card, StatRow, colors } from "../../src/ui/primitives";
-import { WaypointsRepository } from "../../src/data/storage";
+import { WaypointsRepository, HistoryRepository } from "../../src/data/storage";
 import type { Waypoint } from "../../src/data/types";
 import {
   bearingDeg,
@@ -22,7 +22,21 @@ export default function NavigateScreen() {
 
   useEffect(() => {
     if (!id) return;
-    WaypointsRepository.list().then((all) => setWaypoint(all.find((w) => w.id === id) ?? null));
+    WaypointsRepository.list().then((all) => {
+      const found = all.find((w) => w.id === id) ?? null;
+      setWaypoint(found);
+      if (found) {
+        HistoryRepository.add({
+          kind: "navigated",
+          transport: "qr",
+          label: found.name,
+          latitude: found.latitude,
+          longitude: found.longitude,
+          accuracyM: found.accuracyM,
+          at: Date.now(),
+        });
+      }
+    });
   }, [id]);
 
   if (!waypoint) {

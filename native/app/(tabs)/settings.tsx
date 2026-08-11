@@ -1,5 +1,6 @@
 import React from "react";
 import { Alert, Pressable, StyleSheet, Text } from "react-native";
+import { router } from "expo-router";
 import { Screen, Title, Card, colors } from "../../src/ui/primitives";
 import { HistoryRepository } from "../../src/data/storage";
 
@@ -9,6 +10,9 @@ export default function SettingsScreen() {
       <Title>Settings</Title>
       <Card>
         <Text style={styles.heading}>Data</Text>
+        <Pressable onPress={() => router.push("/history")}>
+          <Text style={styles.action}>View history</Text>
+        </Pressable>
         <Pressable
           onPress={() =>
             Alert.alert("Clear history", "This removes share/receive/navigate history only — waypoints and groups are kept.", [
@@ -24,7 +28,7 @@ export default function SettingsScreen() {
         <Text style={styles.heading}>About</Text>
         <Text style={styles.body}>
           Magellan Native — GNSS navigation and location sharing built on real device sensors. No simulated or
-          fabricated location data is ever shown; unavailable values are labeled "Unavailable".
+          fabricated location data is ever shown; unavailable values are labeled &ldquo;Unavailable&rdquo;.
         </Text>
       </Card>
     </Screen>

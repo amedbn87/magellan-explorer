@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useFocusEffect } from "expo-router";
 import { Screen, Title, colors } from "../../src/ui/primitives";
 import { decodeLocationPayload } from "../../src/services/transport/payload";
 import { WaypointsRepository, HistoryRepository } from "../../src/data/storage";
@@ -9,6 +10,21 @@ export default function ReceiveScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+
+  // The camera hardware must only be active while this tab is actually
+  // visible. React Navigation tabs stay mounted when you switch away, so
+  // without this the camera (and its native buffer/decoding pipeline) would
+  // keep running in the background indefinitely — the same class of
+  // "listener never torn down" resource leak that contributed to the old
+  // WebView freezes. See MASTER PROMPT section 20.
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      setScanning(true);
+      return () => setFocused(false);
+    }, []),
+  );
 
   if (!permission) return null;
 
@@ -63,11 +79,13 @@ export default function ReceiveScreen() {
     <Screen scroll={false}>
       <Title>Receive</Title>
       <View style={styles.cameraWrap}>
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={scanning ? (event) => onScanned(event.data) : undefined}
-        />
+        {focused ? (
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            onBarcodeScanned={scanning ? (event) => onScanned(event.data) : undefined}
+          />
+        ) : null}
       </View>
       {lastError ? <Text style={styles.error}>{lastError}</Text> : null}
       <Text style={styles.hint}>Point the camera at a Magellan QR code.</Text>

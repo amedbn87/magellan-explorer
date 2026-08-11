@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text } from "react-native";
 import { router } from "expo-router";
 import { useMagellan } from "../../src/state/MagellanProvider";
 import { Screen, Title, Card, StatRow, colors } from "../../src/ui/primitives";
