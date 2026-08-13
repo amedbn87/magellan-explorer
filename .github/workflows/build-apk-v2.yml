@@ -1,68 +1,60 @@
-name: Build Magellan APK v2
+name: Build Magellan Native APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build-apk:
+    name: Build Expo Native Android APK
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
     steps:
-      - name: Checkout
+      - name: Checkout integrate-stitch-ui
         uses: actions/checkout@v4
+        with:
+          ref: integrate-stitch-ui
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
           cache: gradle
+
       - name: Install dependencies
-        run: npm install
-      - name: Build web application for Android
-        run: npm run build:android
-      - name: Prepare Capacitor web assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf dist
-          if [ -f .output/public/index.html ]; then
-            cp -R .output/public dist
-          elif [ -f dist/index.html ]; then
-            echo "dist already contains index.html"
-          else
-            echo "No static web output with index.html was produced."
-            find . -maxdepth 4 -type f -name 'index.html' | head -100
-            exit 1
-          fi
-          test -f dist/index.html
-      - name: Create Android project
-        run: npx cap add android
-      - name: Sync Capacitor Android project
-        run: npx cap sync android
-      - name: Verify Java and Gradle environment
-        run: |
-          java -version
-          javac -version
-          cd android
-          ./gradlew --version
+        run: npm ci
+
+      - name: Validate Expo configuration
+        run: npx expo config --type public
+
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --non-interactive --clean
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
+
       - name: Build debug APK
-        working-directory: android
+        working-directory: native/android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
       - name: Verify APK exists
-        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
-      - name: Upload APK
+        run: test -s native/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Magellan-debug-apk-v2
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Magellan-integrate-stitch-ui-debug-apk
+          path: native/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
