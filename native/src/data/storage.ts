@@ -1,6 +1,16 @@
 import * as SQLite from "expo-sqlite";
 import type { HistoryEntry, Waypoint, WaypointGroup } from "./types";
 
+export type DistanceUnit = "metric" | "imperial";
+export type CoordinateFormat = "decimal" | "dms";
+
+export interface Preferences {
+  distanceUnit: DistanceUnit;
+  coordinateFormat: CoordinateFormat;
+}
+
+const DEFAULT_PREFERENCES: Preferences = { distanceUnit: "metric", coordinateFormat: "decimal" };
+
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
@@ -35,6 +45,10 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           longitude REAL NOT NULL,
           accuracyM REAL,
           at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS preferences (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
         );
       `);
       return db;
@@ -154,5 +168,31 @@ export const HistoryRepository = {
   async clear(): Promise<void> {
     const db = await getDb();
     await db.runAsync("DELETE FROM history");
+  },
+};
+
+export const PreferencesRepository = {
+  async get(): Promise<Preferences> {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ key: string; value: string }>(
+      "SELECT key, value FROM preferences",
+    );
+    const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    return {
+      distanceUnit: (stored.distanceUnit as DistanceUnit) ?? DEFAULT_PREFERENCES.distanceUnit,
+      coordinateFormat:
+        (stored.coordinateFormat as CoordinateFormat) ?? DEFAULT_PREFERENCES.coordinateFormat,
+    };
+  },
+  async set(patch: Partial<Preferences>): Promise<Preferences> {
+    const db = await getDb();
+    const entries = Object.entries(patch) as [keyof Preferences, string][];
+    for (const [key, value] of entries) {
+      await db.runAsync(
+        "INSERT INTO preferences (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        [key, value],
+      );
+    }
+    return PreferencesRepository.get();
   },
 };

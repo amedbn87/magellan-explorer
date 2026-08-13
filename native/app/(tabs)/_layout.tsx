@@ -1,14 +1,19 @@
 import { Tabs } from "expo-router";
+import { Text } from "react-native";
+import { colors, spacing, fontFamily } from "../../src/ui/theme";
 
-const TAB_ICONS: Record<string, string> = {
-  index: "🧭",
+const TAB_ICON: Record<string, string> = {
+  index: "🗺️",
   waypoints: "📍",
-  groups: "🗂️",
-  satellites: "🛰️",
-  share: "📤",
-  receive: "📥",
-  marine: "🌊",
-  settings: "⚙️",
+  navigate: "🧭",
+  status: "📊",
+};
+
+const TAB_LABEL: Record<string, string> = {
+  index: "Map",
+  waypoints: "Waypoints",
+  navigate: "Navigate",
+  status: "Status",
 };
 
 export default function TabsLayout() {
@@ -16,23 +21,24 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: "#3AA7FF",
-        tabBarInactiveTintColor: "#7A8699",
-        tabBarStyle: { backgroundColor: "#0B1220", borderTopColor: "#1B2536" },
-        tabBarIcon: () => null,
-        tabBarLabel: TAB_ICONS[route.name]
-          ? `${TAB_ICONS[route.name]} ${route.name === "index" ? "Home" : route.name}`
-          : route.name,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.onSurfaceVariant,
+        tabBarStyle: {
+          backgroundColor: colors.surfaceContainerHighest,
+          borderTopColor: colors.border,
+          height: spacing.touchTargetMin + 16,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: { fontFamily: fontFamily.labelCaps, fontSize: 11, textTransform: "uppercase" },
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>{TAB_ICON[route.name] ?? "•"}</Text>,
+        tabBarLabel: TAB_LABEL[route.name] ?? route.name,
       })}
     >
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="waypoints" options={{ title: "Waypoints" }} />
-      <Tabs.Screen name="groups" options={{ title: "Groups" }} />
-      <Tabs.Screen name="satellites" options={{ title: "Satellites" }} />
-      <Tabs.Screen name="share" options={{ title: "Share" }} />
-      <Tabs.Screen name="receive" options={{ title: "Receive" }} />
-      <Tabs.Screen name="marine" options={{ title: "Marine" }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="waypoints" />
+      <Tabs.Screen name="navigate" />
+      <Tabs.Screen name="status" />
     </Tabs>
   );
 }

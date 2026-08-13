@@ -29,10 +29,25 @@ export function normalizeRelativeBearing(targetBearing: number, currentHeading: 
   return d;
 }
 
-export function formatDistance(m: number): string {
+export function formatDistance(m: number, unit: "metric" | "imperial" = "metric"): string {
   if (!Number.isFinite(m)) return "—";
+  if (unit === "imperial") {
+    const feet = m * 3.28084;
+    if (feet < 528) return `${Math.round(feet)} ft`; // 0.1 mi
+    return `${(feet / 5280).toFixed(feet < 52800 ? 2 : 1)} mi`;
+  }
   if (m < 1000) return `${m < 10 ? m.toFixed(1) : Math.round(m)} m`;
   return `${(m / 1000).toFixed(m < 10000 ? 2 : 1)} km`;
+}
+
+export function formatSpeed(mps: number, unit: "metric" | "imperial" = "metric"): string {
+  if (!Number.isFinite(mps)) return "—";
+  return unit === "imperial" ? `${(mps * 2.23694).toFixed(1)} mph` : `${(mps * 3.6).toFixed(1)} km/h`;
+}
+
+export function formatAltitude(m: number, unit: "metric" | "imperial" = "metric"): string {
+  if (!Number.isFinite(m)) return "—";
+  return unit === "imperial" ? `${Math.round(m * 3.28084)} ft` : `${m.toFixed(1)} m`;
 }
 
 export const CARDINALS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
@@ -43,6 +58,39 @@ export function cardinal(deg: number): string {
 
 export function formatCoord(lat: number, lon: number, digits = 6): string {
   return `${lat.toFixed(digits)}, ${lon.toFixed(digits)}`;
+}
+
+function toDms(value: number, positiveSuffix: string, negativeSuffix: string): string {
+  const suffix = value >= 0 ? positiveSuffix : negativeSuffix;
+  const abs = Math.abs(value);
+  const degrees = Math.floor(abs);
+  const minutesFull = (abs - degrees) * 60;
+  const minutes = Math.floor(minutesFull);
+  const seconds = (minutesFull - minutes) * 60;
+  return `${degrees}°${minutes}'${seconds.toFixed(1)}"${suffix}`;
+}
+
+/** Degrees/minutes/seconds — matches the WGS84 DMS format shown throughout
+ * the Stitch UI reference (e.g. `46°01'22.4"N`). */
+export function formatCoordDms(lat: number, lon: number): { lat: string; lon: string } {
+  return {
+    lat: toDms(lat, "N", "S"),
+    lon: toDms(lon, "E", "W"),
+  };
+}
+
+export type CoordinateFormat = "decimal" | "dms";
+
+export function formatCoordinates(
+  lat: number,
+  lon: number,
+  format: CoordinateFormat,
+): { primary: string; secondary?: string } {
+  if (format === "dms") {
+    const dms = formatCoordDms(lat, lon);
+    return { primary: dms.lat, secondary: dms.lon };
+  }
+  return { primary: formatCoord(lat, lon) };
 }
 
 /** Arrival is a function of distance AND reported accuracy. */
