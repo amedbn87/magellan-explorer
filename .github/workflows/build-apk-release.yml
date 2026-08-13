@@ -1,0 +1,48 @@
+name: Build Magellan Standalone Release APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Build release APK
+        working-directory: native/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK exists
+        run: test -f android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: magellan-release-apk
+          path: native/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
