@@ -2,6 +2,9 @@ name: Build Magellan Native APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - integrate-stitch-ui
 
 permissions:
   contents: read
@@ -50,7 +53,7 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Verify APK exists
-        run: test -s native/android/app/build/outputs/apk/debug/app-debug.apk
+        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
