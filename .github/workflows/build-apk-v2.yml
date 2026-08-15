@@ -1,4 +1,4 @@
-name: Build Magellan Native APK
+name: Build Magellan Standalone Android APK
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Expo Native Android APK
+    name: Build Standalone Magellan Release APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,16 +48,26 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
-      - name: Build debug APK
+      - name: Build standalone release APK
         working-directory: native/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Verify APK exists
-        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify release APK exists
+        run: test -s android/app/build/outputs/apk/release/app-release.apk
 
-      - name: Upload installable APK
+      - name: Verify APK is not a development build
+        working-directory: native/android
+        run: |
+          if unzip -l app/build/outputs/apk/release/app-release.apk | grep -Eiq 'expo-dev-launcher|expo-dev-menu'; then
+            echo 'ERROR: Release APK contains Expo development launcher components.'
+            exit 1
+          fi
+          echo 'Release APK passed development-build component check.'
+
+      - name: Upload standalone installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Magellan-integrate-stitch-ui-debug-apk
-          path: native/android/app/build/outputs/apk/debug/app-debug.apk
+          name: Magellan-Standalone-Release-APK
+          path: native/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          retention-days: 7
